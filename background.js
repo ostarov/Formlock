@@ -1,7 +1,4 @@
-alert("Thank you for using Formstery!");
-
-var params = null;
-var global = null;
+alert("Thank you for using FormLock!");
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     //console.log(sender.tab ? "from a content script:" + sender.tab.url : "from the extension");
@@ -39,26 +36,24 @@ chrome.webNavigation.onCompleted.addListener(function(o) {
     }); 
 });
 
-var trackDomain = null;
+var allowedDomain = null;
+var blockedCounter = 0;
 
 chrome.webRequest.onBeforeRequest.addListener(
     function(details) {
         //console.log(JSON.stringify(details));
         
-        var d = getRootDomain(getHostname(details.url));
-        if (trackDomain != null && trackDomain != d) {
+        // TODO: block only for specific tab/frame?
+        var current_domain = getRootDomain(getHostname(details.url));
+        var fCancel = (allowedDomain != null && allowedDomain != current_domain);
+        
+        if (fCancel) {
             console.log(details.url);
+            blockedCounter++;
         }
         
-        /*
-        //if (details.url.indexOf("track") != -1) {
-        if (details.requestBody != undefined) {
-            alert(details.url);
-            alert(JSON.stringify(details.requestBody));
-        }
-        
-        return {cancel: details.url.indexOf("://www.evil.com/") != -1};
-        */
+        return {cancel: fCancel};
+
     },
     {urls: ["<all_urls>"]},
     ["blocking", "requestBody"]);
@@ -121,26 +116,50 @@ chrome.runtime.onInstalled.addListener(function() {
             });
         }
         
-        /*
-        if (info.menuItemId == "track") {
+        if (info.menuItemId == "blockDomains") {
             
-            var url = info.frameUrl;
-            if (url == undefined) url = info.pageUrl;
+            chrome.tabs.sendMessage(tab.id, {"msg": "FGetClickedElement", "url": url}, function(payload) {
+
+                if (payload != null) {
+                    
+                    if (allowedDomain != null) {
+                        var buf = "Lock for only " + allowedDomain + " removed. " + "Third-party requests blocked: " + blockedCounter;
+                   
+                        allowedDomain = null;
+                        blockedCounter = 0;
             
-            trackDomain = getRootDomain(getHostname(url));   
+                        chrome.contextMenus.update("removeLock", {"title": "Remove lock: <none>"});
+            
+                        alert(buf);
+                    }
+
+                    allowedDomain = getRootDomain(payload.domain);
+                    alert("Submit the form in private! Now only calls to " + allowedDomain 
+                          + " are allowed. To remove the lock use context menu.")
+                    chrome.contextMenus.update("removeLock", {"title": "Remove lock: " + allowedDomain});     
+                }
+            });   
         }
-        */
+        
+        if (info.menuItemId == "removeLock") {         
+            var buf = "Lock for only " + allowedDomain + " removed. " + "Third-party requests blocked: " + blockedCounter;
+                   
+            allowedDomain = null;
+            blockedCounter = 0;
+            
+            chrome.contextMenus.update("removeLock", {"title": "Remove lock: <none>"});
+            
+            alert(buf);
+        }
     }; 
     
     // Prepare menu
-    chrome.contextMenus.create({"title": "Formstery", "contexts": ["all"], "id": "Formstery"});
+    chrome.contextMenus.create({"title": "FormLock", "contexts": ["all"], "id": "Formstery"});
     chrome.contextMenus.create({"title": "Submit method: undefined", "contexts": ["all"], "parentId": "Formstery", id: "submitMethod"});
     chrome.contextMenus.create({"title": "Submits to: undefined", "contexts": ["all"], "parentId": "Formstery", id: "submitTo"});
     chrome.contextMenus.create({"type": "separator", "contexts": ["all"], "parentId": "Formstery"});
     chrome.contextMenus.create({"title": "Explain sharing risks.", "contexts": ["all"], "parentId": "Formstery", "id": "formRisks", "onclick": clickHandler});
     chrome.contextMenus.create({"type": "separator", "contexts": ["all"], "parentId": "Formstery"});
-    chrome.contextMenus.create({"title": "Block other domains.", "contexts": ["all"], "parentId": "Formstery", "id": "blockDomains", "onclick": clickHandler});
-    
-    
-    
+    chrome.contextMenus.create({"title": "Allow only this domain.", "contexts": ["all"], "parentId": "Formstery", "id": "blockDomains", "onclick": clickHandler});
+    chrome.contextMenus.create({"title": "Remove lock: <none>", "id": "removeLock", "contexts": ["all"], "parentId": "Formstery", "onclick": clickHandler}); 
 });
