@@ -1,51 +1,46 @@
-alert("Thank you for using FormLock!");
+/*
+    Main background Form Lock script.
+*/
 
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-    //console.log(sender.tab ? "from a content script:" + sender.tab.url : "from the extension");
-    
-    if (request.req == "newForm") {
-        //console.log(JSON.stringify(request));
-        
-        chrome.contextMenus.update("submitMethod", {"title": "Submit method: " + request.method});
-        chrome.contextMenus.update("submitTo", {"title": "Submits to: " + getRootDomain(request.domain)});
-    }
-});
+alert("Thank you for trying FormLock!");
 
+// INTERCEPTS PAGE SCRIPTS ON NEW URL LOADED
 chrome.webNavigation.onCompleted.addListener(function(o) {
     
+    // (1) Tracking the mouse events  
+    //chrome.tabs.executeScript(tabId, {file: "utils.js"}, function(){
     chrome.tabs.executeScript(o.tabId, {
-        allFrames: true,
-        file: "mouse_monitor.js"
+            allFrames: true,
+            file: "mouse_track.js"
     });
     
-    chrome.tabs.get(o.tabId, function(tab) {
-        
-        //alert(tab.url);
-        //console.log(tab.url);
-        
+    // (2) Checking the available forms
+    chrome.tabs.get(o.tabId, function(tab) { 
+        // Passing the tab URL
         chrome.tabs.executeScript(o.tabId, { 
             allFrames: true,
             code: "var taburl = \"" + tab.url + "\";"
-            }, 
-            function() {
-                chrome.tabs.executeScript(o.tabId, {
-                    allFrames: true,
-                    file: "form_check.js"
-                });
+        }, 
+        function() {
+            // Main code
+            chrome.tabs.executeScript(o.tabId, {
+                allFrames: true,
+                file: "form_check.js"
             });
-    }); 
+        });
+    });  
 });
 
-var allowedDomain = null;
+// The one allowed domain
+var lockDomain = null;
 var blockedCounter = 0;
 
+// BLOCKS THIRD-PARTY DOMAINS EXCEPT THE LOCK
+// TODO: chenge global blocking to per tab/frame based!
 chrome.webRequest.onBeforeRequest.addListener(
     function(details) {
-        //console.log(JSON.stringify(details));
-        
-        // TODO: block only for specific tab/frame?
         var current_domain = getRootDomain(getHostname(details.url));
-        var fCancel = (allowedDomain != null && allowedDomain != current_domain);
+        var fCancel = (lockDomain != null && lockDomain != current_domain);
         
         if (fCancel) {
             console.log(details.url);
@@ -56,17 +51,29 @@ chrome.webRequest.onBeforeRequest.addListener(
 
     },
     {urls: ["<all_urls>"]},
-    ["blocking", "requestBody"]);
+    ["blocking"] // TODO: analyze the "requestBody" too!
+);
 
 
+// UPDATES THE CONTEXT MENU WITH CURRENT FORM'S INFO
+// TODO: consider reliability and usability of this approach!
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    
+    if (request.req === "FLClickedForm") {      
+        chrome.contextMenus.update("submitMethod", {"title": "Submit method: " + request.method});
+        chrome.contextMenus.update("submitTo", {"title": "Submits to: " + getRootDomain(request.domain)});
+    }
+});
 
-function getHostname(url) {
+// Helper functions
+// TODO: move to utils.js
+var getHostname = function(url) {
     var a = document.createElement('a');
     a.href = url;
     return a.hostname;
 }
 
-function getRootDomain(hostname) {
+var getRootDomain = function(hostname) {
     if (hostname == undefined || hostname == null) return hostname;
     
     var arr = hostname.split('.');
@@ -78,27 +85,27 @@ function getRootDomain(hostname) {
     }
 }
 
+// CREATES THE CONTEXT MENU AND ITS CLICK HANDLERS
 chrome.runtime.onInstalled.addListener(function() {
     
+    // (1) Process the menu clicks
     var clickHandler = function(info, tab) {
         //console.log("info: " + JSON.stringify(info));
         //console.log("tab: " + JSON.stringify(tab));
         
         var url = info.frameUrl ? info.frameUrl : info.pageUrl;
         
-        if (info.menuItemId == "formRisks") {
+        // Explain the form risks option
+        if (info.menuItemId === "formRisks") {
         
-            chrome.tabs.sendMessage(tab.id, {"msg": "FGetClickedElement", "url": url}, function(payload) {
+            chrome.tabs.sendMessage(tab.id, {"msg": "FLGetClickedElement", "url": url}, function(payload) {
                 //alert(payload.method);
                 //console.log(JSON.stringify(payload));
 
                 if (payload != null) {
 
+                    // TODO: move to utils.js
                     var violation = "";
-
-                    if (payload.method == "get") {
-                        violation += "> Submit with GET\n";
-                    }
 
                     var global_url = getRootDomain(getHostname(tab.url));
                     var current_url = getRootDomain(payload.domain);
@@ -106,8 +113,12 @@ chrome.runtime.onInstalled.addListener(function() {
                     if (global_url != current_url) {
                         violation += "> Third-party: " + current_url + "\n";
                     }
+                    
+                    if (payload.method === "get") {
+                        violation += "> Submit with GET\n";
+                    }
 
-                    if (violation == "") {
+                    if (violation === "") {
                         violation = "Looks safe.";
                     }
 
@@ -116,44 +127,49 @@ chrome.runtime.onInstalled.addListener(function() {
             });
         }
         
-        if (info.menuItemId == "blockDomains") {
+        // Set the lock for one domain allowed
+        if (info.menuItemId === "blockDomains") {
             
-            chrome.tabs.sendMessage(tab.id, {"msg": "FGetClickedElement", "url": url}, function(payload) {
+            chrome.tabs.sendMessage(tab.id, {"msg": "FLGetClickedElement", "url": url}, function(payload) {
 
                 if (payload != null) {
                     
-                    if (allowedDomain != null) {
-                        var buf = "Lock for only " + allowedDomain + " removed. " + "Third-party requests blocked: " + blockedCounter;
-                   
-                        allowedDomain = null;
-                        blockedCounter = 0;
-            
-                        chrome.contextMenus.update("removeLock", {"title": "Remove lock: <none>"});
-            
-                        alert(buf);
+                    if (lockDomain != null) {
+                        alert("Please, remove the current lock to the \"" + lockDomain + "\" first. You can use the context menu.");
                     }
-
-                    allowedDomain = getRootDomain(payload.domain);
-                    alert("Submit the form in private! Now only calls to " + allowedDomain 
-                          + " are allowed. To remove the lock use context menu.")
-                    chrome.contextMenus.update("removeLock", {"title": "Remove lock: " + allowedDomain});     
+                    else {          
+                        lockDomain = getRootDomain(payload.domain);
+                        alert("Submit the form in private! Now only calls to the \"" + lockDomain 
+                              + "\" are allowed. To remove the lock use context menu.")
+                    
+                        chrome.contextMenus.update("removeLock", {"title": "Remove lock: " + lockDomain});  
+                    }
                 }
             });   
         }
         
-        if (info.menuItemId == "removeLock") {         
-            var buf = "Lock for only " + allowedDomain + " removed. " + "Third-party requests blocked: " + blockedCounter;
+        // Removes the current form lock
+        if (info.menuItemId === "removeLock") {         
+            var buf = "Lock for the only \"" + lockDomain + "\" has been removed. " + "Third-party requests blocked: " + blockedCounter + ".";
                    
-            allowedDomain = null;
-            blockedCounter = 0;
-            
             chrome.contextMenus.update("removeLock", {"title": "Remove lock: <none>"});
             
-            alert(buf);
+            if (blockedCounter === 0) {
+                alert(buf);
+            }
+            else {
+                var answer = confirm(buf + " For more privacy it is better to reload the tab, okay?");
+                if (answer === true) {
+                    chrome.tabs.executeScript(tab.id, {code: "window.location.reload();"});
+                }
+            }
+            
+            lockDomain = null;
+            blockedCounter = 0;
         }
     }; 
     
-    // Prepare menu
+    // (2) Register the menu items
     chrome.contextMenus.create({"title": "FormLock", "contexts": ["all"], "id": "Formstery"});
     chrome.contextMenus.create({"title": "Submit method: undefined", "contexts": ["all"], "parentId": "Formstery", id: "submitMethod"});
     chrome.contextMenus.create({"title": "Submits to: undefined", "contexts": ["all"], "parentId": "Formstery", id: "submitTo"});

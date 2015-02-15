@@ -1,4 +1,7 @@
-// Content script
+/*
+    Tracks the mouse location and context menu clicks.
+*/
+
 var clickedEl1 = null;
 var clickedEl2 = null;
 
@@ -18,25 +21,19 @@ document.addEventListener("mousedown", function(event) {
         
         if (p != null) {
             var domain = getHostname(p.getAttribute('action'));       
-            chrome.runtime.sendMessage({req: "newForm", method: p.method, domain: domain});
+            chrome.runtime.sendMessage({req: "FLClickedForm", method: p.method, domain: domain});
         }
         else {
-            chrome.runtime.sendMessage({req: "newForm"});
+            chrome.runtime.sendMessage({req: "FLClickedForm"});
         }
         
         clickedEl1 = null;
     }
 }, true);
 
-function getHostname(url) {
-    var a = document.createElement('a');
-    a.href = url;
-    return a.hostname;
-}
-
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {  
     
-    if (request.msg == "FGetClickedElement" && document.URL == request.url) {
+    if (request.msg == "FLGetClickedElement" && document.URL == request.url) {
         var p = clickedEl2;
         
         while (p && p.tagName != "FORM") {     
