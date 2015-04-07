@@ -2,25 +2,6 @@
     Highlights risky forms with red border.
 */
 
-// Helper functions
-var getHostname = function(url) {
-    var a = document.createElement('a');
-    a.href = url;
-    return a.hostname;
-}
-
-var getRootDomain = function(hostname) {
-    if (hostname == undefined || hostname == null) return hostname;
-    
-    var arr = hostname.split('.');
-    if (arr.length > 1) {
-        return arr[arr.length-2] + '.' + arr[arr.length-1];
-    }
-    else {
-        return hostname;
-    }
-}
-
 // Using global URL of the current tab
 var global_url = getRootDomain(getHostname(taburl));
 
@@ -31,16 +12,15 @@ for (var f = 0; f < document.forms.length; ++f) {
 
     var violation = "";
     
-    if (global_url != current_url) {
+    if (global_url !== current_url) {
         violation += "> Third-party: " + current_url + "\n";
     }
     
-    if (document.forms[f].method == "get") {
+    if (document.forms[f].method === "get") {
         violation += "> Submit with GET\n";
     }
     
-    if (violation != "") {   
+    if (violation !== "") {   
         document.forms[f].style.border = "medium solid red"; 
     }
 }
-

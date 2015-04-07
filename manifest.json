@@ -1,9 +1,15 @@
 {
   "manifest_version": 2,
 
-  "name": "Form Lock",
+  "name": "FormLock",
   "description": "Fill out and submit web forms in private.",
   "version": "0.1",
+
+  "icons": { 
+      "16": "icons/lock16.png",
+      "48": "icons/lock48.png",
+      "128": "icons/lock128.png" 
+  },
 
   "permissions": [
     "contextMenus",
@@ -15,7 +21,7 @@
     "*://*/*"
   ],
     
-  "background": { "scripts": ["background.js"] },
+  "background": { "scripts": ["utils.js", "background.js"] },
     
   "browser_action": {
     "default_popup": "popup.html"

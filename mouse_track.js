@@ -12,15 +12,14 @@ document.addEventListener("mousedown", function(event) {
         clickedEl1 = event.target;
         clickedEl2 = event.target;
         
-        // Active notification to prepare menu
         var p = clickedEl1;
-        
         while (p && p.tagName != "FORM") {     
             p = p.parentElement;
         }
         
+        // Active notification to prepare menu
         if (p != null) {
-            var domain = getHostname(p.getAttribute('action'));       
+            var domain = getHostname(p.getAttribute('action'));
             chrome.runtime.sendMessage({req: "FLClickedForm", method: p.method, domain: domain});
         }
         else {
@@ -31,9 +30,9 @@ document.addEventListener("mousedown", function(event) {
     }
 }, true);
 
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {  
-    
-    if (request.msg == "FLGetClickedElement" && document.URL == request.url) {
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) { 
+    // Retrive the clicked form for locking
+    if (request.msg == "FLGetClickedForm" && document.URL == request.url) {
         var p = clickedEl2;
         
         while (p && p.tagName != "FORM") {     
