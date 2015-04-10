@@ -17,12 +17,8 @@ chrome.webRequest.onBeforeRequest.addListener(
         if (lockDomains.length > 0) {
             fCancel = true;
             var current_domain = getRootDomain(getHostname(details.url));
-            
-            for (l in lockDomains) {
-                if (lockDomains[l] === current_domain) {
-                    fCancel = false;
-                    break;
-                }
+            if (lockDomains.indexOf(current_domain) !== -1) {
+                fCancel = false;
             }
         
             if (fCancel) {
@@ -35,6 +31,29 @@ chrome.webRequest.onBeforeRequest.addListener(
     {urls: ["<all_urls>"]},
     ["blocking"] 
 );
+
+// CLEARING STORAGES OF POTENTIAL LEAKS
+var started = null;
+function clearNewData(callback) {   
+    if (started !== null) {
+        chrome.browsingData.remove({
+            "since": started
+          }, {
+            "appcache": true,
+            "cache": true,
+            "cookies": true,
+            "downloads": true,
+            "fileSystems": true,
+            "formData": true,
+            "history": true,
+            "indexedDB": true,
+            "localStorage": true,
+            "pluginData": true,
+            "passwords": true,
+            "webSQL": true
+          }, callback);
+    }
+}
 
 // CREATES THE CONTEXT MENU AND ITS CLICK HANDLERS
 chrome.runtime.onInstalled.addListener(function() {
@@ -68,21 +87,29 @@ chrome.runtime.onInstalled.addListener(function() {
                 // Remove LOCK
                 var msg = "Unlocked. Third-party requests blocked " + blocked.length + ":\n";
                 for (b in blocked) {
-                    msg += getRootDomain(getHostname(blocked[b])) + "\n";
+                    msg += getHostname(blocked[b]) + "\n";
                 }
-                chrome.browserAction.setBadgeText({text: ""})
-                chrome.browserAction.setTitle({title: "FormLock"})
+                chrome.browserAction.setBadgeText({text: ""});
+                chrome.browserAction.setTitle({title: "FormLock"});
                 chrome.contextMenus.update("lock", {"title": "Set LOCK"});
-                lockDomains = []
-                blocked = []
-                chrome.tabs.reload(tab.id);
-                //chrome.tabs.executeScript(tab.id, {code: "window.location.reload();"});
-                alert(msg);            
+                lockDomains = [];
+                blocked = [];                
+                var oldUrl = tab.url.split("?")[0]; 
+                // TODO: close new opened tabs? or tabs of the same domain?
+                chrome.tabs.executeScript(tab.id, {code: "window.location.href='about:blank';"}, function(tab) {
+                    var callback = function () {
+                        chrome.tabs.update(tab.id, {url: oldUrl});
+                        started = null;
+                        alert(msg); 
+                    };
+                    clearNewData(callback);  
+                });            
             }
             else {
                 // Set LOCK
                 chrome.tabs.sendMessage(tab.id, {"msg": "FLGetClickedForm", "url": url}, function(payload) {
-                    if (payload !== null) {                            
+                    if (payload !== null) {                    
+                        started = (new Date()).getTime();
                         // Page url and the form url
                         var first = getRootDomain(getHostname(tab.url));
                         var second = getRootDomain(payload.domain);

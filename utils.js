@@ -5,7 +5,7 @@ var getHostname = function(url) {
 }
 
 var getRootDomain = function(hostname) {
-    if (hostname == undefined || hostname == null) return hostname;  
+    if (hostname == undefined || hostname == null || hostname == "") return "(empty)";  
     var arr = hostname.split('.');
     if (arr.length > 1) {
         return arr[arr.length-2] + '.' + arr[arr.length-1];

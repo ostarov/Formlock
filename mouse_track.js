@@ -47,3 +47,15 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         clickedEl2 = null;
     }
 });
+
+chrome.storage.onChanged.addListener(function(changes, namespace) {
+        for (key in changes) {
+          var storageChange = changes[key];
+          alert('Storage key "%s" in namespace "%s" changed. ' +
+                      'Old value was "%s", new value is "%s".',
+                      key,
+                      namespace,
+                      storageChange.oldValue,
+                      storageChange.newValue);
+        }
+});
