@@ -2,7 +2,7 @@
     Main background Form Lock script.
 */
 
-alert("Thank you for trying FormLock!\nSincerely, PragSec Team");
+alert("Thank you for trying FormLock!");
 
 // BLOCKS THIRD-PARTY DOMAINS EXCEPT THE LOCK
 // TODO: change global blocking to per tab/frame based!
