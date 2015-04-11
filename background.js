@@ -33,6 +33,7 @@ chrome.webRequest.onBeforeRequest.addListener(
 );
 
 // CLEARING STORAGES OF POTENTIAL LEAKS
+// TODO: may try to restore previous values of updated cookies
 var started = null;
 function clearNewData(callback) {   
     if (started !== null) {
